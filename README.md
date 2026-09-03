@@ -1,75 +1,95 @@
 # Declaude
 
-A lightweight utility and script to fix the **"Another program is currently using this file"** error on Windows when Claude Desktop updates, allowing you to open Claude immediately without having to reboot your computer.
+[![Release](https://img.shields.io/github/v/release/moltic/declaude?style=flat-square)](https://github.com/moltic/declaude/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows)](https://github.com/moltic/declaude)
+
+Fixes the **"Another program is currently using this file"** error on Windows when Claude Desktop updates, allowing you to launch Claude immediately without rebooting your PC.
 
 ---
 
-## The Problem
+## Quick Fix (No Installation)
 
-When Claude Desktop updates on Windows (via the MSIX / Windows Store distribution), the update process frequently encounters a deadlock:
-1. Windows Centennial / MSIX apps use virtualized registry containers called **Helium silos** (`\REGISTRY\WC\Silo...`).
-2. The companion service `CoworkVMService` and lingering background processes hold file locks on `User.dat` and `UserClasses.dat` in `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\SystemAppData\Helium\`.
-3. During or immediately following an update, the old silo becomes orphaned in the Windows kernel, leaving these registry files locked exclusively by `System` (PID 4) and `Registry` (PID 280).
-4. When you attempt to launch Claude, Windows fails to initialize the new AppX container with error code `0x80070020` (`ERROR_SHARING_VIOLATION` / *"Cannot create the Desktop AppX container because an error was encountered converting the job"*), displaying:
+Open PowerShell as your normal user and run this one-liner:
+
+```powershell
+irm https://raw.githubusercontent.com/moltic/declaude/main/declaude.ps1 | iex
+```
+
+Accept the UAC prompt. The tool will unlock all kernel registry silos and launch Claude Desktop within seconds.
+
+---
+
+## Local Usage
+
+You can also download the latest release or clone this repository:
+
+### 1. Download Pre-compiled Binary
+Download [`declaude.exe`](https://github.com/moltic/declaude/releases/latest) from the [Releases](https://github.com/moltic/declaude/releases) page and run or double-click it.
+
+### 2. From Repository
+Double-click:
+- **`declaude.cmd`** (or `declaude.exe`)
+
+Or run in PowerShell:
+```powershell
+.\declaude.ps1
+```
+
+---
+
+## Why This Happens
+
+When Claude Desktop updates on Windows (MSIX / WindowsApps version):
+1. Windows uses isolated container silos (Centennial / Helium) that mount private differencing hives (`User.dat` and `UserClasses.dat`) at `\REGISTRY\WC\Silo...` under kernel processes `System` (PID 4) and `Registry` (PID 280).
+2. The companion service `CoworkVMService` and orphaned worker processes keep the old container active during an in-place update.
+3. The previous container gets orphaned in the Windows kernel, leaving these registry files locked exclusively.
+4. When you attempt to open Claude, Windows fails to convert the container job object with error code `0x80070020` (`ERROR_SHARING_VIOLATION`), and Windows Shell pops up:
    > **Another program is currently using this file.**
 
-Traditionally, the only known fix was restarting Windows so the kernel unmounts all hives during shutdown.
+Task Manager cannot kill these kernel locks. Previously, the only known resolution was restarting Windows.
 
 ---
 
-## The Solution: Declaude
+## How Declaude Solves It
 
-`Declaude` clears the deadlock without rebooting:
-1. Gracefully stops `CoworkVMService` and terminates any lingering processes (`cowork-svc.exe`, `chrome-native-host.exe`, `Claude.exe`).
+1. Stops `CoworkVMService` and terminates lingering processes (`cowork-svc.exe`, `Claude.exe`, `chrome-native-host.exe`).
 2. Scans `HKLM:\SYSTEM\CurrentControlSet\Control\hivelist` for orphaned Claude `\REGISTRY\WC\Silo*` differencing hives.
-3. Invokes the native Windows kernel API `NtUnloadKey2` with `REG_FORCE_UNLOAD` via an elevated SYSTEM worker to unmount the locked silos.
+3. Invokes the native Windows kernel API `NtUnloadKey2` with `REG_FORCE_UNLOAD` via a transient elevated SYSTEM worker to unmount the locked hives.
 4. Releases all file locks on `User.dat` and `UserClasses.dat`.
 5. Automatically relaunches Claude Desktop.
 
 ---
 
-## Quick Usage
+## Permanent Prevention: Switch to Standalone EXE
 
-### Option 1: Run `declaude.cmd` or `declaude.exe` (Recommended)
-Simply double-click:
-- **`declaude.cmd`** (or `declaude.exe`)
+Anthropic also publishes an official standalone EXE (Squirrel) installer that installs to `%LOCALAPPDATA%\Programs\Claude` instead of `WindowsApps`. It does not use container silos and therefore never suffers from this update deadlock bug.
 
-Accept the standard Windows UAC prompt. Within 2–3 seconds, the locked kernel silos are freed and Claude Desktop opens.
+To switch to the standalone version while preserving all your chats, settings, and MCP servers in `%APPDATA%\Claude`:
 
-### Option 2: Run from PowerShell Terminal
-Run in an elevated or standard PowerShell terminal:
-```powershell
-.\declaude.ps1
-```
-*(If run from a standard terminal, it will automatically prompt for elevation via UAC).*
-
----
-
-## Permanent Prevention: Migrate to Standalone EXE
-
-If you prefer to never deal with MSIX container locks again, Anthropic also provides an official standalone EXE installer (Squirrel-based). The standalone version installs directly into your user profile (`%LOCALAPPDATA%\Programs\Claude`) and does not use `WindowsApps` or Helium container silos, eliminating this issue permanently.
-
-To switch to the standalone version (preserving all your existing chats, settings, and MCP servers in `%APPDATA%\Claude`):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\migrate-to-exe.ps1
 ```
-Or manually run:
+
+Or manually:
 ```powershell
 winget install --id Anthropic.Claude --installer-type exe
 ```
 
 ---
 
-## Building from Source
+## Contributing & Development
 
-To recompile `declaude.exe`:
+To compile `declaude.exe` from source:
 
-### Using .NET Framework compiler (`csc.exe` - built into Windows):
 ```cmd
 csc /target:exe /win32manifest:app.manifest /out:declaude.exe Program.cs
 ```
-
-### Using modern .NET SDK:
+Or with .NET SDK:
 ```cmd
 dotnet build -c Release
 ```
+
+## License
+
+[MIT](LICENSE)

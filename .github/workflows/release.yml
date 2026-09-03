@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Build Executable
+        shell: cmd
+        run: |
+          C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe /target:exe /win32manifest:app.manifest /out:declaude.exe Program.cs
+
+      - name: Create Release Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "declaude.exe", "declaude.cmd", "declaude.ps1", "migrate-to-exe.ps1", "README.md", "LICENSE" -DestinationPath "declaude-windows-x64.zip"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            declaude.exe
+            declaude-windows-x64.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
