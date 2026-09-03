@@ -1,6 +1,5 @@
 # Declaude
 
-[![Release](https://img.shields.io/github/v/release/moltic/declaude?style=flat-square)](https://github.com/moltic/declaude/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D6?style=flat-square&logo=windows)](https://github.com/moltic/declaude)
 
@@ -8,33 +7,20 @@ Fixes the **"Another program is currently using this file"** error on Windows wh
 
 ---
 
-## Quick Fix (No Installation)
+## Quick Fix
 
-Open PowerShell as your normal user and run this one-liner:
-
-```powershell
-irm https://raw.githubusercontent.com/moltic/declaude/main/declaude.ps1 | iex
-```
-
-Accept the UAC prompt. The tool will unlock all kernel registry silos and launch Claude Desktop within seconds.
-
----
-
-## Local Usage
-
-You can also download the latest release or clone this repository:
-
-### 1. Download Pre-compiled Binary
-Download [`declaude.exe`](https://github.com/moltic/declaude/releases/latest) from the [Releases](https://github.com/moltic/declaude/releases) page and run or double-click it.
-
-### 2. From Repository
+### Option 1: Double-Click (Quickest)
 Double-click:
-- **`declaude.cmd`** (or `declaude.exe`)
+- **`declaude.cmd`**
 
-Or run in PowerShell:
+Accept the standard Windows UAC prompt. The tool will unlock the kernel registry silos and launch Claude Desktop within seconds.
+
+### Option 2: Run in PowerShell Terminal
+Open PowerShell in this directory and run:
 ```powershell
 .\declaude.ps1
 ```
+*(If run from a non-elevated terminal, it will automatically prompt for UAC elevation).*
 
 ---
 
@@ -55,7 +41,7 @@ Task Manager cannot kill these kernel locks. Previously, the only known resoluti
 
 1. Stops `CoworkVMService` and terminates lingering processes (`cowork-svc.exe`, `Claude.exe`, `chrome-native-host.exe`).
 2. Scans `HKLM:\SYSTEM\CurrentControlSet\Control\hivelist` for orphaned Claude `\REGISTRY\WC\Silo*` differencing hives.
-3. Invokes the native Windows kernel API `NtUnloadKey2` with `REG_FORCE_UNLOAD` via a transient elevated SYSTEM worker to unmount the locked hives.
+3. Invokes the native Windows kernel API `NtUnloadKey2` with `REG_FORCE_UNLOAD` to safely unmount the locked hives.
 4. Releases all file locks on `User.dat` and `UserClasses.dat`.
 5. Automatically relaunches Claude Desktop.
 
@@ -77,18 +63,6 @@ winget install --id Anthropic.Claude --installer-type exe
 ```
 
 ---
-
-## Contributing & Development
-
-To compile `declaude.exe` from source:
-
-```cmd
-csc /target:exe /win32manifest:app.manifest /out:declaude.exe Program.cs
-```
-Or with .NET SDK:
-```cmd
-dotnet build -c Release
-```
 
 ## License
 
